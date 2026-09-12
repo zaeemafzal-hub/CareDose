@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#3d6b5c">
+<meta name="description" content="CareDose — track your medicines and never miss a dose.">
+<title>CareDose — Medicine Reminders</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  :root{
+    --paper:#eff1ec; --surface:#ffffff; --ink:#1f2a24; --ink-soft:#516156;
+    --pine:#3d6b5c; --pine-dark:#2b4d41; --amber:#c87f2a; --amber-soft:#f3e3cd;
+    --line:#d8ddd4; --danger:#b3462c; --danger-soft:#f6e3de; --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3,.serif{ font-family:'Fraunces', Georgia, serif; }
+  button{ font-family:inherit; }
+  .app{ max-width:920px; margin:0 auto; padding:28px 20px 90px; }
+
+  .masthead{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap; }
+  .wordmark{ display:flex; align-items:baseline; gap:10px; }
+  .wordmark .rx{ font-family:'Fraunces', serif; font-weight:600; font-size:30px; letter-spacing:-0.01em; color:var(--pine-dark); }
+  .wordmark .tag{ color:var(--ink-soft); font-size:13px; border-left:1px solid var(--line); padding-left:10px; }
+  .clock{ font-family:'Fraunces', serif; font-size:15px; color:var(--ink-soft); }
+
+  .tabs{ display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:24px; overflow-x:auto; }
+  .tab{ background:none; border:none; cursor:pointer; padding:10px 4px; margin-right:22px; font-size:14.5px; color:var(--ink-soft); border-bottom:2px solid transparent; position:relative; top:1px; white-space:nowrap; }
+  .tab.active{ color:var(--pine-dark); border-bottom:2px solid var(--pine-dark); font-weight:600; }
+  .view{ display:none; } .view.active{ display:block; }
+
+  .empty{ border:1px dashed var(--line); border-radius:var(--radius); padding:36px 24px; text-align:center; color:var(--ink-soft); }
+  .empty .serif{ font-size:19px; color:var(--ink); display:block; margin-bottom:6px;}
+
+  .today-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; flex-wrap:wrap; gap:6px; }
+  .today-head .date{ font-family:'Fraunces', serif; font-size:22px; }
+  .next-up{ font-size:13px; color:var(--ink-soft); } .next-up b{ color:var(--pine-dark); }
+
+  .dose-row{ display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line); border-left:6px solid var(--pill-color, var(--pine)); border-radius:var(--radius); padding:13px 16px; margin-bottom:10px; flex-wrap:wrap; }
+  .dose-row.due{ border-left-color:var(--amber); background:var(--amber-soft); }
+  .dose-row.taken{ opacity:0.55; }
+  .dose-row.missed{ border-left-color:var(--danger); background:var(--danger-soft); }
+  .dose-time{ font-family:'Fraunces', serif; font-size:18px; min-width:64px; }
+  .dose-info{ flex:1; min-width:120px; }
+  .dose-name{ font-weight:600; font-size:15px; }
+  .dose-dosage{ font-size:13px; color:var(--ink-soft); }
+  .dose-status{ font-size:12px; padding:3px 9px; border-radius:20px; white-space:nowrap; }
+  .status-upcoming{ background:#e7ebe6; color:var(--ink-soft); }
+  .status-due{ background:var(--amber); color:#fff; }
+  .status-taken{ background:var(--pine); color:#fff; }
+  .status-missed{ background:var(--danger); color:#fff; }
+  .dose-actions{ display:flex; gap:6px; }
+  .btn{ border:1px solid var(--pine); background:var(--pine); color:#fff; border-radius:7px; padding:7px 13px; font-size:13px; cursor:pointer; }
+  .btn.secondary{ background:transparent; color:var(--pine-dark); }
+  .btn.ghost{ background:transparent; border-color:var(--line); color:var(--ink-soft); }
+  .btn.danger{ background:transparent; border-color:var(--danger); color:var(--danger); }
+  .btn.small{ padding:5px 10px; font-size:12px; }
+  .btn:hover{ filter:brightness(0.96); }
+
+  .banner{ padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:12px; }
+  .banner.warn{ background:var(--amber-soft); color:#7a4c17; }
+  .banner.ok{ background:#e2ede6; color:var(--pine-dark); }
+  .banner.bad{ background:var(--danger-soft); color:#7a2e1a; }
+
+  .med-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+  .med-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px; display:flex; gap:14px; }
+  .cap{ width:10px; border-radius:6px; background:var(--pill-color, var(--pine)); flex-shrink:0; }
+  .med-body{ flex:1; min-width:0; }
+  .med-top{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .med-name{ font-family:'Fraunces', serif; font-size:18px; }
+  .med-dosage{ color:var(--ink-soft); font-size:13.5px; margin-top:1px;}
+  .med-times{ margin-top:9px; display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{ background:var(--paper); border:1px solid var(--line); font-size:12.5px; padding:3px 9px; border-radius:20px; }
+  .chip.low{ background:var(--danger-soft); border-color:var(--danger); color:#7a2e1a; }
+  .med-days{ margin-top:6px; font-size:12px; color:var(--ink-soft); }
+  .med-notes{ margin-top:8px; font-size:13px; color:var(--ink-soft); font-style:italic; }
+  .med-actions{ display:flex; gap:8px; align-self:flex-start; }
+
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; margin-bottom:18px; }
+  .panel h3{ margin:0 0 14px; font-size:18px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:12.5px; color:var(--ink-soft); margin-bottom:5px; }
+  .field input[type=text], .field input[type=number], .field input[type=time], .field select, .field textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; background:#fff; font-family:inherit; color:var(--ink);
+  }
+  .field textarea{ resize:vertical; min-height:50px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .row2-1-2{ display:grid; grid-template-columns:1fr 2fr; gap:14px; }
+  .time-adder{ display:flex; gap:8px; } .time-adder input{ flex:1; }
+  .time-list{ display:flex; gap:7px; flex-wrap:wrap; margin-top:9px; }
+  .time-pill{ background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:5px 6px 5px 12px; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .time-pill button{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:14px; line-height:1; padding:2px; }
+  .days-picker{ display:flex; gap:6px; flex-wrap:wrap; }
+  .day-toggle{ border:1px solid var(--line); background:#fff; border-radius:7px; padding:7px 10px; font-size:12.5px; cursor:pointer; color:var(--ink-soft); }
+  .day-toggle.on{ background:var(--pine); border-color:var(--pine); color:#fff; }
+  .color-picker{ display:flex; gap:8px; } .swatch{ width:26px; height:26px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+  .swatch.on{ border-color:var(--ink); }
+  .form-actions{ display:flex; gap:10px; justify-content:flex-end; margin-top:6px; }
+  .inline-check{ display:flex; align-items:center; gap:8px; font-size:13.5px; margin-bottom:10px; }
+
+  .toggle-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); gap:14px; }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle-row .lab{ font-size:14px; } .toggle-row .sub{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .switch{ position:relative; width:40px; height:22px; flex-shrink:0; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{ position:absolute; inset:0; background:#c9cfc5; border-radius:20px; cursor:pointer; transition:.15s; }
+  .slider:before{ content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.15s; }
+  input:checked + .slider{ background:var(--pine); } input:checked + .slider:before{ transform:translateX(18px); }
+
+  .helptext{ font-size:12.5px; color:var(--ink-soft); margin-top:-6px; margin-bottom:14px; line-height:1.5; }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:18px; }
+  .stat-box{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px; text-align:center; }
+  .stat-box .num{ font-family:'Fraunces', serif; font-size:26px; color:var(--pine-dark); }
+  .stat-box .lab{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .dotgrid{ display:flex; gap:6px; margin-bottom:18px; }
+  .dotgrid .day{ flex:1; text-align:center; }
+  .dotgrid .dot{ width:100%; aspect-ratio:1; border-radius:8px; margin-bottom:4px; }
+  .dotgrid .lab{ font-size:11px; color:var(--ink-soft); }
+  .hist-med-row{ display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px; }
+  .hist-med-row:last-child{ border-bottom:none; }
+  .hist-bar-wrap{ background:var(--paper); border-radius:6px; height:6px; width:120px; overflow:hidden; }
+  .hist-bar{ background:var(--pine); height:100%; }
+
+  .toast-wrap{ position:fixed; bottom:20px; right:20px; left:20px; display:flex; flex-direction:column; align-items:flex-end; gap:8px; z-index:40; pointer-events:none;}
+  .toast{ background:var(--pine-dark); color:#fff; padding:12px 16px; border-radius:8px; font-size:13.5px; box-shadow:0 6px 18px rgba(0,0,0,0.18); max-width:340px; pointer-events:auto; }
+  .toast b{ display:block; margin-bottom:2px; font-family:'Fraunces', serif; font-size:14.5px; }
+
+  @media (max-width:600px){
+    .row2, .row2-1-2{ grid-template-columns:1fr; }
+    .stat-grid{ grid-template-columns:repeat(3,1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="masthead">
+    <div class="wordmark"><span class="rx">CareDose</span><span class="tag">Never miss a dose</span></div>
+    <div class="clock" id="clock">—</div>
+  </div>
+
+  <div id="permBanner"></div>
+  <div id="stockBanner"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-view="today">Today</button>
+    <button class="tab" data-view="meds">Medicines</button>
+    <button class="tab" data-view="history">History</button>
+    <button class="tab" data-view="settings">Settings</button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="view active" id="view-today">
+    <div class="today-head">
+      <div class="date serif" id="todayDate">—</div>
+      <div class="next-up" id="nextUp"></div>
+    </div>
+    <div id="todayList"></div>
+  </div>
+
+  <!-- MEDICINES -->
+  <div class="view" id="view-meds">
+    <div class="med-toolbar">
+      <div class="serif" style="font-size:19px;">Your medicines</div>
+      <button class="btn" id="addMedBtn">+ Add medicine</button>
+    </div>
+
+    <div class="panel" id="medForm" style="display:none;">
+      <h3 id="medFormTitle">Add a medicine</h3>
+      <div class="row2-1-2">
+        <div class="field"><label>Pill color (for quick recognition)</label><div class="color-picker" id="colorPicker"></div></div>
+        <div class="field"><label>Medicine name</label><input type="text" id="f-name" placeholder="e.g. Metformin"></div>
+      </div>
+      <div class="field"><label>Dosage</label><input type="text" id="f-dosage" placeholder="e.g. 500mg, 1 tablet"></div>
+      <div class="field">
+        <label>Times to take it</label>
+        <div class="time-adder"><input type="time" id="f-time-input"><button class="btn secondary" id="addTimeBtn" type="button">Add time</button></div>
+        <div class="time-list" id="timeList"></div>
+      </div>
+      <div class="field"><label>Days</label><div class="days-picker" id="daysPicker"></div></div>
+
+      <label class="inline-check"><input type="checkbox" id="f-trackstock"> Track how many doses I have left</label>
+      <div class="row2" id="stockFields" style="display:none;">
+        <div class="field"><label>Doses currently in stock</label><input type="number" id="f-stock" min="0"></div>
+        <div class="field"><label>Warn me when stock drops to</label><input type="number" id="f-lowstock" min="0"></div>
+      </div>
+
+      <div class="field"><label>Notes (optional)</label><textarea id="f-notes" placeholder="e.g. Take with food"></textarea></div>
+      <div class="form-actions">
+        <button class="btn ghost" id="cancelMedBtn" type="button">Cancel</button>
+        <button class="btn" id="saveMedBtn" type="button">Save medicine</button>
+      </div>
+    </div>
+
+    <div id="medsList"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="view" id="view-history">
+    <div class="serif" style="font-size:19px; margin-bottom:14px;">Last 7 days</div>
+    <div class="stat-grid" id="statGrid"></div>
+    <div class="dotgrid" id="dotGrid"></div>
+    <div class="panel">
+      <h3>By medicine</h3>
+      <div id="histByMed"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="panel">
+      <h3>Notifications</h3>
+      <div class="toggle-row">
+        <div><div class="lab">Browser notifications</div><div class="sub">Alerts you while this app is open</div></div>
+        <label class="switch"><input type="checkbox" id="s-notifyBrowser"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="lab">Email reminders</div><div class="sub">Sends an email through your connected EmailJS account</div></div>
+        <label class="switch"><input type="checkbox" id="s-notifyEmail"><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <div><div class="lab">Quiet hours</div><div class="sub">Pause alerts overnight (doses still log as missed if not marked taken)</div></div>
+        <label class="switch"><input type="checkbox" id="s-quietEnabled"><span class="slider"></span></label>
+      </div>
+      <div class="row2" id="quietFields" style="margin-top:12px; display:none;">
+        <div class="field"><label>Quiet from</label><input type="time" id="s-quietStart"></div>
+        <div class="field"><label>Quiet until</label><input type="time" id="s-quietEnd"></div>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Remind me this many minutes before a dose</label><input type="number" id="s-lead" min="0" max="60" style="max-width:120px;"></div>
+      <button class="btn secondary" id="askPermBtn" type="button">Enable browser notification permission</button>
+    </div>
+
+    <div class="panel">
+      <h3>Email setup (EmailJS)</h3>
+      <p class="helptext">
+        This app has no server of its own, so real email needs a connected email service.
+        <a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> has a free tier for sending email
+        directly from a browser app. Create a service + template there, then paste the three IDs below. Your template
+        can use variables <code>{{to_email}}</code>, <code>{{med_name}}</code>, <code>{{dosage}}</code>, <code>{{dose_time}}</code>.
+      </p>
+      <div class="field"><label>Your email address</label><input type="text" id="s-email" placeholder="you@example.com"></div>
+      <div class="row2">
+        <div class="field"><label>EmailJS Service ID</label><input type="text" id="s-service" placeholder="service_xxxxxxx"></div>
+        <div class="field"><label>EmailJS Template ID</label><input type="text" id="s-template" placeholder="template_xxxxxxx"></div>
+      </div>
+      <div class="field"><label>EmailJS Public Key</label><input type="text" id="s-publickey" placeholder="public key from EmailJS account settings"></div>
+      <div class="form-actions" style="justify-content:flex-start;"><button class="btn secondary" id="testEmailBtn" type="button">Send test email</button></div>
+      <div id="emailStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Backup your data</h3>
+      <p class="helptext">This app's data lives only on this device/browser. Export a backup before switching phones, and import it on the new one.</p>
+      <div class="form-actions" style="justify-content:flex-start; gap:10px;">
+        <button class="btn secondary" id="exportBtn" type="button">Export backup</button>
+        <button class="btn secondary" id="importBtn" type="button">Import backup</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Your data</h3>
+      <button class="btn danger" id="resetBtn" type="button">Erase all CareDose data</button>
+    </div>
+  </div>
+
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const COLORS = [
+    {id:"pine", hex:"#3d6b5c"}, {id:"amber", hex:"#c87f2a"}, {id:"berry", hex:"#96334a"},
+    {id:"sky", hex:"#3f6f92"}, {id:"plum", hex:"#6a4a80"}, {id:"olive", hex:"#7a7a3d"}
+  ];
+  const MISSED_GRACE_HOURS = 3;
+
+  let data = {
+    medicines: [],
+    settings: { email:"", emailjsServiceId:"", emailjsTemplateId:"", emailjsPublicKey:"",
+      notifyBrowser:true, notifyEmail:false, leadMinutes:0,
+      quietEnabled:false, quietStart:"22:00", quietEnd:"07:00" },
+    log: {}
+  };
+  let editingId = null, draftTimes = [], draftColor = COLORS[0].id, draftDays = new Set(DAY_NAMES);
+  const notifyState = {}; // sessionKey -> 'done' | timestamp(ms) for snooze
+
+  const $ = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const pad = n => String(n).padStart(2,"0");
+  const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const todayKey = () => dateKey(new Date());
+  const uid = () => Math.random().toString(36).slice(2,10);
+  const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtTime = t => { const [h,m]=t.split(":").map(Number); const ap=h>=12?"PM":"AM"; const h12=((h+11)%12)+1; return `${h12}:${pad(m)} ${ap}`; };
+  const colorHex = id => (COLORS.find(c=>c.id===id)||COLORS[0]).hex;
+
+  async function loadData(){
+    try{
+      const res = await window.storage.get("caredose:data", false);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        data.medicines = parsed.medicines || [];
+        data.log = parsed.log || {};
+        data.settings = Object.assign({}, data.settings, parsed.settings || {});
+      }
+    }catch(e){}
+  }
+  async function saveData(){
+    try{ await window.storage.set("caredose:data", JSON.stringify(data), false); }
+    catch(e){ toast("Couldn't save", "Your changes may not persist — storage error."); }
+  }
+
+  function toast(title, body){
+    const wrap = $("#toastWrap");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = `<b>${escapeHtml(title)}</b>${escapeHtml(body||"")}`;
+    wrap.appendChild(el);
+    setTimeout(()=> el.remove(), 7000);
+  }
+
+  $$(".tab").forEach(tab => tab.addEventListener("click", () => {
+    $$(".tab").forEach(t=>t.classList.remove("active"));
+    $$(".view").forEach(v=>v.classList.remove("active"));
+    tab.classList.add("active");
+    $("#view-"+tab.dataset.view).classList.add("active");
+    if(tab.dataset.view==="history") renderHistory();
+  }));
+
+  function tickClock(){
+    const d = new Date();
+    $("#clock").textContent = d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    $("#todayDate").textContent = d.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"});
+  }
+
+  function renderColorPicker(){
+    $("#colorPicker").innerHTML = COLORS.map(c => `<div class="swatch ${c.id===draftColor?'on':''}" data-color="${c.id}" style="background:${c.hex}"></div>`).join("");
+    $$("#colorPicker .swatch").forEach(sw => sw.addEventListener("click", () => { draftColor = sw.dataset.color; renderColorPicker(); }));
+  }
+  function renderDaysPicker(){
+    $("#daysPicker").innerHTML = DAY_NAMES.map(d => `<button type="button" class="day-toggle ${draftDays.has(d)?'on':''}" data-day="${d}">${d}</button>`).join("");
+    $$("#daysPicker .day-toggle").forEach(btn => btn.addEventListener("click", () => {
+      const d = btn.dataset.day;
+      if(draftDays.has(d)) draftDays.delete(d); else draftDays.add(d);
+      renderDaysPicker();
+    }));
+  }
+  function renderTimeList(){
+    draftTimes.sort();
+    $("#timeList").innerHTML = draftTimes.map(t => `<span class="time-pill">${fmtTime(t)}<button type="button" data-t="${t}">&times;</button></span>`).join("")
+      || `<span style="font-size:12.5px;color:var(--ink-soft);">No times added yet</span>`;
+    $$("#timeList button").forEach(b => b.addEventListener("click", () => { draftTimes = draftTimes.filter(t=>t!==b.dataset.t); renderTimeList(); }));
+  }
+  $("#addTimeBtn").addEventListener("click", () => {
+    const v = $("#f-time-input").value; if(!v) return;
+    if(!draftTimes.includes(v)) draftTimes.push(v);
+    $("#f-time-input").value = ""; renderTimeList();
+  });
+  $("#f-trackstock").addEventListener("change", e => { $("#stockFields").style.display = e.target.checked ? "grid" : "none"; });
+
+  function openMedForm(med){
+    editingId = med ? med.id : null;
+    $("#medFormTitle").textContent = med ? "Edit medicine" : "Add a medicine";
+    $("#f-name").value = med ? med.name : "";
+    $("#f-dosage").value = med ? med.dosage : "";
+    $("#f-notes").value = med ? (med.notes||"") : "";
+    $("#f-trackstock").checked = med ? !!med.trackStock : false;
+    $("#stockFields").style.display = (med && med.trackStock) ? "grid" : "none";
+    $("#f-stock").value = med && med.stock!=null ? med.stock : "";
+    $("#f-lowstock").value = med && med.lowStockAlert!=null ? med.lowStockAlert : "";
+    draftTimes = med ? [...med.times] : [];
+    draftColor = med ? med.color : COLORS[0].id;
+    draftDays = med ? new Set(med.days) : new Set(DAY_NAMES);
+    renderColorPicker(); renderDaysPicker(); renderTimeList();
+    $("#medForm").style.display = "block";
+    $("#medForm").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  function closeMedForm(){ $("#medForm").style.display = "none"; editingId = null; }
+  $("#addMedBtn").addEventListener("click", () => openMedForm(null));
+  $("#cancelMedBtn").addEventListener("click", closeMedForm);
+
+  $("#saveMedBtn").addEventListener("click", async () => {
+    const name = $("#f-name").value.trim();
+    if(!name){ toast("Add a name", "Enter the medicine's name before saving."); return; }
+    if(draftTimes.length===0){ toast("Add a time", "Add at least one time to take this medicine."); return; }
+    if(draftDays.size===0){ toast("Pick a day", "Choose at least one day this applies to."); return; }
+    const trackStock = $("#f-trackstock").checked;
+    const med = {
+      id: editingId || uid(), name, dosage: $("#f-dosage").value.trim(), notes: $("#f-notes").value.trim(),
+      times: [...draftTimes], color: draftColor, days: [...draftDays],
+      trackStock,
+      stock: trackStock && $("#f-stock").value !== "" ? Number($("#f-stock").value) : null,
+      lowStockAlert: trackStock && $("#f-lowstock").value !== "" ? Number($("#f-lowstock").value) : null
+    };
+    if(editingId) data.medicines = data.medicines.map(m => m.id===editingId ? med : m);
+    else data.medicines.push(med);
+    await saveData(); closeMedForm(); renderMeds(); renderToday();
+    toast("Saved", `${name} is on the schedule.`);
+  });
+
+  async function deleteMed(id){
+    const med = data.medicines.find(m=>m.id===id);
+    data.medicines = data.medicines.filter(m=>m.id!==id);
+    await saveData(); renderMeds(); renderToday();
+    toast("Removed", med ? `${med.name} was removed.` : "Medicine removed.");
+  }
+
+  function renderMeds(){
+    const list = $("#medsList");
+    if(data.medicines.length===0){
+      list.innerHTML = `<div class="empty"><span class="serif">No medicines yet</span>Add your first one to start getting reminders.</div>`;
+      renderStockBanner(); return;
+    }
+    list.innerHTML = data.medicines.map(m => {
+      const low = m.trackStock && m.stock!=null && m.lowStockAlert!=null && m.stock<=m.lowStockAlert;
+      return `
+      <div class="med-card" style="--pill-color:${colorHex(m.color)}">
+        <div class="cap"></div>
+        <div class="med-body">
+          <div class="med-top">
+            <div><div class="med-name">${escapeHtml(m.name)}</div><div class="med-dosage">${escapeHtml(m.dosage||"")}</div></div>
+          </div>
+          <div class="med-times">${m.times.slice().sort().map(t=>`<span class="chip">${fmtTime(t)}</span>`).join("")}
+            ${m.trackStock ? `<span class="chip ${low?'low':''}">${m.stock!=null ? m.stock+' left' : 'stock tracked'}</span>` : ""}
+          </div>
+          <div class="med-days">${m.days.length===7 ? "Every day" : m.days.join(", ")}</div>
+          ${m.notes ? `<div class="med-notes">${escapeHtml(m.notes)}</div>` : ""}
+        </div>
+        <div class="med-actions">
+          <button class="btn secondary" data-edit="${m.id}">Edit</button>
+          <button class="btn danger" data-del="${m.id}">Delete</button>
+        </div>
+      </div>`;
+    }).join("");
+    $$("[data-edit]").forEach(b => b.addEventListener("click", () => openMedForm(data.medicines.find(m=>m.id===b.dataset.edit))));
+    $$("[data-del]").forEach(b => b.addEventListener("click", () => { if(confirm("Remove this medicine and its schedule?")) deleteMed(b.dataset.del); }));
+    renderStockBanner();
+  }
+
+  function renderStockBanner(){
+    const low = data.medicines.filter(m => m.trackStock && m.stock!=null && m.lowStockAlert!=null && m.stock<=m.lowStockAlert);
+    $("#stockBanner").innerHTML = low.length
+      ? `<div class="banner warn">Running low: ${low.map(m=>`${escapeHtml(m.name)} (${m.stock} left)`).join(", ")} — time to arrange a refill.</div>`
+      : "";
+  }
+
+  function todaysDoses(){
+    const day = DAY_NAMES[new Date().getDay()];
+    const doses = [];
+    data.medicines.forEach(m => { if(m.days.includes(day)) m.times.forEach(t => doses.push({medId:m.id, name:m.name, dosage:m.dosage, color:m.color, time:t})); });
+    doses.sort((a,b)=> a.time.localeCompare(b.time));
+    return doses;
+  }
+
+  function doseState(dose){
+    const key = `${dose.medId}|${dose.time}`;
+    const entry = (data.log[todayKey()]||{})[key];
+    if(entry === "taken") return "taken";
+    if(entry === "skipped") return "skipped";
+    const now = new Date();
+    const [h,m] = dose.time.split(":").map(Number);
+    const doseTime = new Date(); doseTime.setHours(h,m,0,0);
+    const graceEnd = new Date(doseTime.getTime() + MISSED_GRACE_HOURS*3600000);
+    if(now > graceEnd) return "missed";
+    return now >= doseTime ? "due" : "upcoming";
+  }
+
+  async function setLogStatus(medId, time, status){
+    const key = `${medId}|${time}`, tk = todayKey();
+    data.log[tk] = data.log[tk] || {};
+    data.log[tk][key] = status;
+    if(status === "taken"){
+      const med = data.medicines.find(m=>m.id===medId);
+      if(med && med.trackStock && med.stock!=null) med.stock = Math.max(0, med.stock - 1);
+    }
+    await saveData();
+    renderToday(); renderMeds();
+  }
+
+  function renderToday(){
+    const doses = todaysDoses();
+    const list = $("#todayList");
+    if(doses.length===0){
+      list.innerHTML = `<div class="empty"><span class="serif">Nothing scheduled today</span>Add a medicine to build today's schedule.</div>`;
+      $("#nextUp").textContent = ""; renderPermBanner(); return;
+    }
+    list.innerHTML = doses.map(d => {
+      const st = doseState(d);
+      const label = {taken:"Taken", due:"Due now", missed:"Missed", skipped:"Skipped", upcoming:"Upcoming"}[st];
+      let actions = "";
+      if(st==="due") actions = `<button class="btn small" data-take="${d.medId}|${d.time}">Mark taken</button><button class="btn small ghost" data-snooze="${d.medId}|${d.time}">Snooze 10m</button><button class="btn small ghost" data-skip="${d.medId}|${d.time}">Skip</button>`;
+      else if(st==="upcoming" || st==="missed") actions = `<button class="btn small" data-take="${d.medId}|${d.time}">Mark taken</button>`;
+      return `
+      <div class="dose-row ${st==='due'?'due':''} ${st==='taken'?'taken':''} ${st==='missed'?'missed':''}" style="--pill-color:${colorHex(d.color)}">
+        <div class="dose-time">${fmtTime(d.time)}</div>
+        <div class="dose-info"><div class="dose-name">${escapeHtml(d.name)}</div><div class="dose-dosage">${escapeHtml(d.dosage||"")}</div></div>
+        <span class="dose-status status-${st}">${label}</span>
+        <div class="dose-actions">${actions}</div>
+      </div>`;
+    }).join("");
+    $$("[data-take]").forEach(b => b.addEventListener("click", () => { const [medId,time]=b.dataset.take.split("|"); setLogStatus(medId,time,"taken"); }));
+    $$("[data-skip]").forEach(b => b.addEventListener("click", () => { const [medId,time]=b.dataset.skip.split("|"); setLogStatus(medId,time,"skipped"); }));
+    $$("[data-snooze]").forEach(b => b.addEventListener("click", () => {
+      const key = b.dataset.snooze;
+      notifyState[`${todayKey()}|${key}`] = Date.now() + 10*60000;
+      toast("Snoozed", "We'll remind you again in 10 minutes.");
+    }));
+    const upcoming = doses.find(d => doseState(d)==="upcoming");
+    $("#nextUp").innerHTML = upcoming ? `Next: <b>${escapeHtml(upcoming.name)}</b> at ${fmtTime(upcoming.time)}` : "";
+    renderPermBanner();
+  }
+
+  // ---------- History ----------
+  function scheduledDosesForDate(d){
+    const day = DAY_NAMES[d.getDay()];
+    const out = [];
+    data.medicines.forEach(m => { if(m.days.includes(day)) m.times.forEach(t => out.push({medId:m.id, name:m.name, time:t})); });
+    return out;
+  }
+  function statusForDoseOnDate(d, dose, isToday){
+    const key = `${dose.medId}|${dose.time}`;
+    const entry = (data.log[dateKey(d)]||{})[key];
+    if(entry) return entry;
+    if(isToday){
+      const now = new Date();
+      const [h,m] = dose.time.split(":").map(Number);
+      const doseTime = new Date(); doseTime.setHours(h,m,0,0);
+      if(now < new Date(doseTime.getTime()+MISSED_GRACE_HOURS*3600000)) return null; // not due to be judged yet
+    }
+    return "missed";
+  }
+  function renderHistory(){
+    const days = [];
+    for(let i=6;i>=0;i--){ const d = new Date(); d.setDate(d.getDate()-i); days.push(d); }
+    let totalTaken=0, totalMissed=0, totalSkipped=0;
+    const perMed = {};
+    const dotResults = [];
+
+    days.forEach(d => {
+      const isToday = dateKey(d)===todayKey();
+      const doses = scheduledDosesForDate(d);
+      let dayTaken=0, dayMissed=0, dayCounted=0;
+      doses.forEach(dose => {
+        const st = statusForDoseOnDate(d, dose, isToday);
+        if(st===null) return;
+        dayCounted++;
+        if(st==="taken"){ dayTaken++; totalTaken++; }
+        else if(st==="skipped"){ totalSkipped++; }
+        else { dayMissed++; totalMissed++; }
+        perMed[dose.medId] = perMed[dose.medId] || {name:dose.name, taken:0, missed:0, skipped:0};
+        if(st==="taken") perMed[dose.medId].taken++;
+        else if(st==="skipped") perMed[dose.medId].skipped++;
+        else perMed[dose.medId].missed++;
+      });
+      dotResults.push({d, dayCounted, dayTaken, dayMissed});
+    });
+
+    const denom = totalTaken+totalMissed;
+    const pct = denom ? Math.round((totalTaken/denom)*100) : 0;
+    $("#statGrid").innerHTML = `
+      <div class="stat-box"><div class="num">${pct}%</div><div class="lab">taken on time</div></div>
+      <div class="stat-box"><div class="num">${totalTaken}</div><div class="lab">doses taken</div></div>
+      <div class="stat-box"><div class="num">${totalMissed}</div><div class="lab">doses missed</div></div>
+    `;
+    $("#dotGrid").innerHTML = dotResults.map(r => {
+      let color = "#d8ddd4";
+      if(r.dayCounted>0){ color = r.dayMissed===0 ? "#3d6b5c" : (r.dayTaken===0 ? "#b3462c" : "#c87f2a"); }
+      return `<div class="day"><div class="dot" style="background:${color}"></div><div class="lab">${r.d.toLocaleDateString([], {weekday:"narrow"})}</div></div>`;
+    }).join("");
+
+    const medRows = Object.values(perMed);
+    $("#histByMed").innerHTML = medRows.length ? medRows.map(m => {
+      const d = m.taken+m.missed; const p = d ? Math.round((m.taken/d)*100) : 0;
+      return `<div class="hist-med-row"><span>${escapeHtml(m.name)}</span>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <span class="hist-bar-wrap"><span class="hist-bar" style="width:${p}%"></span></span>
+          <span style="color:var(--ink-soft); min-width:70px; text-align:right;">${m.taken}/${d} taken</span>
+        </span></div>`;
+    }).join("") : `<div class="helptext" style="margin:0;">No history yet — it'll build up as days pass.</div>`;
+  }
+
+  // ---------- Settings ----------
+  function loadSettingsForm(){
+    $("#s-notifyBrowser").checked = !!data.settings.notifyBrowser;
+    $("#s-notifyEmail").checked = !!data.settings.notifyEmail;
+    $("#s-quietEnabled").checked = !!data.settings.quietEnabled;
+    $("#quietFields").style.display = data.settings.quietEnabled ? "grid" : "none";
+    $("#s-quietStart").value = data.settings.quietStart || "22:00";
+    $("#s-quietEnd").value = data.settings.quietEnd || "07:00";
+    $("#s-lead").value = data.settings.leadMinutes || 0;
+    $("#s-email").value = data.settings.email || "";
+    $("#s-service").value = data.settings.emailjsServiceId || "";
+    $("#s-template").value = data.settings.emailjsTemplateId || "";
+    $("#s-publickey").value = data.settings.emailjsPublicKey || "";
+    renderPermBanner();
+  }
+  function bindSetting(id, key, isCheckbox){
+    $(id).addEventListener("change", async e => {
+      data.settings[key] = isCheckbox ? e.target.checked : e.target.value;
+      await saveData();
+      if(key==="notifyBrowser") renderPermBanner();
+      if(key==="quietEnabled") $("#quietFields").style.display = e.target.checked ? "grid" : "none";
+    });
+  }
+  bindSetting("#s-notifyBrowser","notifyBrowser",true);
+  bindSetting("#s-notifyEmail","notifyEmail",true);
+  bindSetting("#s-quietEnabled","quietEnabled",true);
+  bindSetting("#s-quietStart","quietStart",false);
+  bindSetting("#s-quietEnd","quietEnd",false);
+  bindSetting("#s-lead","leadMinutes",false);
+  bindSetting("#s-email","email",false);
+  bindSetting("#s-service","emailjsServiceId",false);
+  bindSetting("#s-template","emailjsTemplateId",false);
+  bindSetting("#s-publickey","emailjsPublicKey",false);
+
+  function renderPermBanner(){
+    const el = $("#permBanner");
+    if(!("Notification" in window)){ el.innerHTML=""; return; }
+    if(Notification.permission !== "granted" && data.settings.notifyBrowser){
+      el.innerHTML = `<div class="banner warn">Browser notifications are on but not yet allowed. <button class="btn secondary small" id="permBtnInline" style="margin-left:8px;">Allow notifications</button></div>`;
+      $("#permBtnInline").addEventListener("click", askPermission);
+    } else el.innerHTML = "";
+  }
+  async function askPermission(){
+    if(!("Notification" in window)){ toast("Not supported", "This browser doesn't support notifications."); return; }
+    const perm = await Notification.requestPermission();
+    renderPermBanner();
+    if(perm==="granted") toast("Notifications enabled", "You'll get an alert when a dose is due.");
+  }
+  $("#askPermBtn").addEventListener("click", askPermission);
+
+  function emailjsReady(){ return data.settings.emailjsServiceId && data.settings.emailjsTemplateId && data.settings.emailjsPublicKey && data.settings.email; }
+  async function sendEmail(dose){
+    if(!emailjsReady() || !window.emailjs) return false;
+    try{
+      emailjs.init({publicKey: data.settings.emailjsPublicKey});
+      await emailjs.send(data.settings.emailjsServiceId, data.settings.emailjsTemplateId, {
+        to_email: data.settings.email, med_name: dose.name, dosage: dose.dosage || "", dose_time: fmtTime(dose.time)
+      });
+      return true;
+    }catch(e){ console.error("EmailJS error", e); return false; }
+  }
+  $("#testEmailBtn").addEventListener("click", async () => {
+    const statusEl = $("#emailStatus");
+    if(!emailjsReady()){ statusEl.innerHTML = `<div class="banner warn">Fill in your email address and all three EmailJS IDs first.</div>`; return; }
+    statusEl.innerHTML = `<div class="banner ok">Sending test email…</div>`;
+    const ok = await sendEmail({name:"Test Medicine", dosage:"1 tablet", time: pad(new Date().getHours())+":"+pad(new Date().getMinutes())});
+    statusEl.innerHTML = ok ? `<div class="banner ok">Test email sent — check your inbox.</div>` : `<div class="banner warn">Couldn't send. Double check the Service ID, Template ID and Public Key.</div>`;
+  });
+
+  // Backup export/import
+  $("#exportBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `caredose-backup-${todayKey()}.json`;
+    a.click();
+  });
+  $("#importBtn").addEventListener("click", () => $("#importFile").click());
+  $("#importFile").addEventListener("change", async e => {
+    const file = e.target.files[0]; if(!file) return;
+    try{
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      if(!parsed.medicines) throw new Error("bad file");
+      if(!confirm("Import this backup? It will replace your current medicines, schedule and settings.")) return;
+      data = { medicines: parsed.medicines||[], settings: Object.assign({}, data.settings, parsed.settings||{}), log: parsed.log||{} };
+      await saveData();
+      renderMeds(); renderToday(); loadSettingsForm();
+      toast("Imported", "Your backup has been restored.");
+    }catch(err){ toast("Couldn't import", "That file doesn't look like a CareDose backup."); }
+    e.target.value = "";
+  });
+
+  $("#resetBtn").addEventListener("click", async () => {
+    if(!confirm("This erases all medicines, schedule and settings. Continue?")) return;
+    data = { medicines: [], settings:{email:"",emailjsServiceId:"",emailjsTemplateId:"",emailjsPublicKey:"",notifyBrowser:true,notifyEmail:false,leadMinutes:0,quietEnabled:false,quietStart:"22:00",quietEnd:"07:00"}, log:{} };
+    await saveData(); renderMeds(); renderToday(); loadSettingsForm();
+    toast("Erased", "All CareDose data has been cleared.");
+  });
+
+  // ---------- Quiet hours ----------
+  function inQuietHours(){
+    if(!data.settings.quietEnabled) return false;
+    const now = new Date();
+    const cur = now.getHours()*60+now.getMinutes();
+    const [sh,sm] = (data.settings.quietStart||"22:00").split(":").map(Number);
+    const [eh,em] = (data.settings.quietEnd||"07:00").split(":").map(Number);
+    const start = sh*60+sm, end = eh*60+em;
+    return start<=end ? (cur>=start && cur<end) : (cur>=start || cur<end);
+  }
+
+  // ---------- Scheduler ----------
+  function checkDue(){
+    const day = DAY_NAMES[new Date().getDay()];
+    const now = new Date();
+    const lead = Number(data.settings.leadMinutes)||0;
+
+    data.medicines.forEach(m => {
+      if(!m.days.includes(day)) return;
+      m.times.forEach(t => {
+        const [h,mi] = t.split(":").map(Number);
+        const doseTime = new Date(); doseTime.setHours(h,mi,0,0);
+        const alertTime = new Date(doseTime.getTime() - lead*60000);
+        const graceEnd = new Date(doseTime.getTime() + MISSED_GRACE_HOURS*3600000);
+        const sessionKey = `${todayKey()}|${m.id}|${t}`;
+        const logKey = `${m.id}|${t}`;
+        const status = (data.log[todayKey()]||{})[logKey];
+
+        if(status === "taken" || status === "skipped") return;
+
+        if(now >= alertTime && now <= graceEnd){
+          const state = notifyState[sessionKey];
+          const canFire = state===undefined || (typeof state === "number" && now.getTime() >= state);
+          if(canFire){
+            notifyState[sessionKey] = "done";
+            if(!inQuietHours()) fireReminder(m, t);
+          }
+        }
+      });
+    });
+    renderToday();
+  }
+
+  function fireReminder(med, time){
+    toast(`${med.name} is due`, `${med.dosage||""} at ${fmtTime(time)}`);
+    if(data.settings.notifyBrowser && "Notification" in window && Notification.permission==="granted"){
+      try{ new Notification(`${med.name} — ${med.dosage||"dose"} due`, {body:`Scheduled for ${fmtTime(time)}`, tag: med.id+time}); }catch(e){}
+    }
+    if(data.settings.notifyEmail) sendEmail({name:med.name, dosage:med.dosage, time});
+  }
+
+  async function init(){
+    await loadData();
+    renderMeds(); renderToday(); loadSettingsForm();
+    tickClock();
+    setInterval(tickClock, 1000);
+    setInterval(checkDue, 20000);
+    checkDue();
+    if("serviceWorker" in navigator){
+      navigator.serviceWorker.register("sw.js").catch(()=>{});
+    }
+  }
+  init();
+})();
+</script>
+</body>
+</html>
